@@ -1113,11 +1113,6 @@
 </header>
 
 <!-- ─── Pre-fill Banner (shown when loaded from Sales Brief) ── -->
-<div id="prefill-banner" style="display:none; background:linear-gradient(90deg,#10b981,#059669); color:#fff; padding:10px 20px; text-align:center; font-size:0.85rem; font-weight:600; letter-spacing:0.02em;">
-  ✅ Pre-filled from Sales Brief — review each field before continuing. Changes are reflected in your SA's review.
-  <button onclick="document.getElementById('prefill-banner').style.display='none'" style="margin-left:16px;background:rgba(255,255,255,0.2);border:none;color:#fff;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:0.8rem;">Dismiss</button>
-</div>
-
 <!-- ─── Main Content ────────────────────────────────────────── -->
 <div class="page-wrap">
 
@@ -2274,10 +2269,7 @@ renderUserTable();
       if (typeof renderUserTable === 'function') renderUserTable();
     }
 
-    // Show pre-fill banner
-    const banner = document.getElementById('prefill-banner');
-    if (banner) banner.style.display = 'block';
-  }
+    // prefill banner suppressed
 
   function loadSalesBriefFromHash() {
     const hash = window.location.hash;
