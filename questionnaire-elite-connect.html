@@ -2319,6 +2319,71 @@ renderUserTable();
     // Banner suppressed — pre-fill is silent
   }
 
+  // Split string into Notion rich_text chunks (max 2000 chars each, max 100 chunks — no truncation)
+  function _chunkRichText(str) {
+    var chunks = [];
+    for (var i = 0; i < str.length; i += 2000) {
+      chunks.push({ text: { content: str.slice(i, i + 2000) } });
+      if (chunks.length >= 100) break;
+    }
+    return chunks.length ? chunks : [{ text: { content: '' } }];
+  }
+
+  // Build human-readable Notion page blocks from submitted payload
+  function _buildSubmissionBlocks(p) {
+    function txt(s) { return [{ type: 'text', text: { content: String(s || '—') } }]; }
+    function row(label, val) {
+      return { object: 'block', type: 'paragraph', paragraph: { rich_text: [
+        { type: 'text', text: { content: label + ': ' }, annotations: { bold: true } },
+        { type: 'text', text: { content: String(val || '—') } }
+      ]}};
+    }
+    function h2(s) { return { object: 'block', type: 'heading_2', heading_2: { rich_text: txt(s) } }; }
+    function divider() { return { object: 'block', type: 'divider', divider: {} }; }
+    function bullet(s) { return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: txt(s) } }; }
+
+    var cycle = p.billingCycle || '—';
+    var dates = (p.cycleDates || []).join(', ') || '—';
+    var grace = p.gracePeriod === 'yes' ? 'Yes — ' + (p.graceDays || '?') + ' days' : (p.gracePeriod === 'no' ? 'No' : '—');
+    var fees  = p.lateFees === 'yes'
+      ? 'Yes — ' + (p.lateFeeType === 'flat' ? '$' + p.lateFeeAmount : (p.lateFeeAmount || '?') + '%')
+      : (p.lateFees === 'no' ? 'No' : '—');
+
+    var blocks = [
+      h2('🏢 Company Info'),
+      row('Company', p.company), row('Contact', p.contact),
+      row('Email', p.email), row('Phone', p.phone), row('Address', p.address),
+      divider(),
+      h2('💳 Billing Configuration'),
+      row('Cycle type', cycle), row('Billing dates', dates),
+      row('Bill in arrears', p.arrears), row('Multiple profiles', p.multiProfile),
+      row('Grace period', grace), row('Late fees', fees),
+      divider(),
+      h2('👥 Users (' + (p.users || []).length + ')'),
+    ];
+    (p.users || []).forEach(function(u) {
+      blocks.push(bullet(
+        (u.name || '?') + ' <' + (u.email || '?') + '> — ' + (u.role || '?') +
+        (u.title ? ' (' + u.title + ')' : '')
+      ));
+    });
+    if (!(p.users || []).length) blocks.push(bullet('No users provided'));
+    blocks.push(divider());
+    blocks.push(h2('📦 Inventory'));
+    blocks.push(row('Inventory tracking', p.inventory));
+    if (p.clientNotes) {
+      blocks.push(divider());
+      blocks.push(h2('💬 Client Notes'));
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: txt(p.clientNotes) } });
+    }
+    blocks.push(divider());
+    blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [
+      { type: 'text', text: { content: 'Submitted: ' + (p.submittedAt || new Date().toISOString()) },
+        annotations: { italic: true, color: 'gray' } }
+    ]}});
+    return blocks;
+  }
+
   // Override approveConfig to write submission to Notion
   var _origApprove = approveConfig;
   approveConfig = function() {
@@ -2329,8 +2394,7 @@ renderUserTable();
       arrears: state.arrears, gracePeriod: state.gracePeriod, graceDays: state.graceDays,
       lateFees: state.lateFees, lateFeeType: state.lateFeeType, lateFeeAmount: state.lateFeeAmount,
       multiProfile: state.multiProfile, inventory: state.inventory,
-      users: state.users,
-      clientNotes: state.saNotes,
+      users: state.users, clientNotes: state.saNotes,
       company:  (document.getElementById('sf-company')  || {}).value || '',
       contact:  (document.getElementById('sf-contact')  || {}).value || '',
       email:    (document.getElementById('sf-email')    || {}).value || '',
@@ -2339,24 +2403,27 @@ renderUserTable();
       logoFileName: state.logoFileName,
       submittedAt: new Date().toISOString(),
     };
-    // Write to Notion
+    var _hdrs = { 'Authorization': 'Bearer ' + _NOTION_TOKEN, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' };
+    // 1. PATCH properties — chunked JSON, no truncation
     fetch('https://api.notion.com/v1/pages/' + _NOTION_PAGE_ID, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': 'Bearer ' + _NOTION_TOKEN,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json'
-      },
+      method: 'PATCH', headers: _hdrs,
       body: JSON.stringify({
         properties: {
           'Status':         { select: { name: 'Submitted' } },
           'Submitted At':   { date: { start: new Date().toISOString() } },
-          'Submitted Data': { rich_text: [{ text: { content: JSON.stringify(payload).slice(0, 2000) } }] }
+          'Submitted Data': { rich_text: _chunkRichText(JSON.stringify(payload)) }
         }
       })
     }).then(function(r) { return r.json(); })
-      .then(function(d) { console.log('[submit]', d.object === 'page' ? 'Saved to Notion ✓' : d.message); })
-      .catch(function(err) { console.error('[submit error]', err); });
+      .then(function(d) { console.log('[submit props]', d.object === 'page' ? 'Properties saved ✓' : d.message); })
+      .catch(function(err) { console.error('[submit props error]', err); });
+    // 2. Append human-readable blocks to Notion page body
+    fetch('https://api.notion.com/v1/blocks/' + _NOTION_PAGE_ID + '/children', {
+      method: 'PATCH', headers: _hdrs,
+      body: JSON.stringify({ children: _buildSubmissionBlocks(payload) })
+    }).then(function(r) { return r.json(); })
+      .then(function(d) { console.log('[submit blocks]', d.object === 'list' ? 'Blocks written ✓' : d.message); })
+      .catch(function(err) { console.error('[submit blocks error]', err); });
   };
 
   // ── Boot ──────────────────────────────────────────────────────────────────
