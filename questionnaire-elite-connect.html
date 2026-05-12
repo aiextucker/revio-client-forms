@@ -116,6 +116,9 @@
     position: relative;
     cursor: default;
   }
+  .step-node.done {
+    cursor: pointer;
+  }
 
   .step-node:not(:last-child)::after {
     content: '';
@@ -1150,34 +1153,34 @@
       <div class="step-title">Company Information</div>
       <div class="step-subtitle">Verify your company details before we begin configuration.</div>
 
-      <div class="section-title">Salesforce Record <span style="font-size:0.72rem;font-weight:400;color:var(--text-dim);margin-left:6px;">— edit anything that needs correcting</span></div>
+      <div class="section-title">Your Details <span style="font-size:0.72rem;font-weight:400;color:var(--text-dim);margin-left:6px;">— review and correct anything that needs updating</span></div>
 
       <div class="sf-grid">
         <div class="form-group">
-          <div class="form-label">Company Name <span class="sf-badge" style="margin-left:5px;vertical-align:middle;">Salesforce</span></div>
+          <div class="form-label">Company Name</div>
           <input class="form-input" id="sf-company" type="text" value="Acme Telecom">
         </div>
         <div class="form-group">
-          <div class="form-label">Primary Contact <span class="sf-badge" style="margin-left:5px;vertical-align:middle;">Salesforce</span></div>
+          <div class="form-label">Primary Contact</div>
           <input class="form-input" id="sf-contact" type="text" value="Sarah Mitchell">
         </div>
         <div class="form-group">
-          <div class="form-label">Email Address <span class="sf-badge" style="margin-left:5px;vertical-align:middle;">Salesforce</span></div>
+          <div class="form-label">Email Address</div>
           <input class="form-input" id="sf-email" type="email" value="sarah@acmetelecom.com">
         </div>
         <div class="form-group">
-          <div class="form-label">Phone <span class="sf-badge" style="margin-left:5px;vertical-align:middle;">Salesforce</span></div>
+          <div class="form-label">Phone</div>
           <input class="form-input" id="sf-phone" type="tel" value="(555) 847-2201">
         </div>
         <div class="form-group" style="grid-column: 1 / -1;">
-          <div class="form-label">Service Address <span class="sf-badge" style="margin-left:5px;vertical-align:middle;">Salesforce</span></div>
+          <div class="form-label">Service Address</div>
           <input class="form-input" id="sf-address" type="text" value="4821 Commerce Blvd, Austin TX 78701">
         </div>
       </div>
 
       <div class="sf-notice">
         <span class="info-icon">ℹ️</span>
-        <span>Pre-filled from Salesforce. Correct any fields above — your SA will be notified of changes before configuration begins.</span>
+        <span>We've pre-filled your details from your account record. Please review and correct anything that's not right before continuing.</span>
       </div>
 
       <div class="step-nav">
@@ -1606,6 +1609,8 @@ function updateProgress(step) {
     const n = parseInt(node.dataset.step);
     node.classList.toggle('active', n === step);
     node.classList.toggle('done', n < step);
+    // Allow clicking completed steps to navigate back
+    node.onclick = (n < step) ? () => goToStep(n) : null;
   });
 }
 
