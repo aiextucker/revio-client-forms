@@ -1522,8 +1522,8 @@
 
       <!-- SA Notes -->
       <div class="form-group" style="margin-top:28px;">
-        <div class="form-label">Notes for SA <span style="color:var(--text-mute);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>
-        <textarea class="form-input" id="saNotes" placeholder="Add any notes, flags, or questions for the Solutions Architect reviewing this configuration…" rows="3"></textarea>
+        <div class="form-label">Notes or Questions <span style="color:var(--text-mute);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>
+        <textarea class="form-input" id="saNotes" placeholder="Anything you’d like your Solutions Architect to know before your kickoff call…" rows="3"></textarea>
       </div>
 
       <!-- Action Buttons -->
@@ -2319,15 +2319,10 @@ renderUserTable();
 };
   var _NOTION_PAGE_ID = '35ea59b7-e7b2-819f-a2de-da78f58f97fb';
   var _NOTION_TOKEN   = 'ntn_44454897586bmbiekJ' + 'JkGrbl7m2iQfSu8zZ8OsF5FE77wc';
-  var _SA_NOTES       = "Salesforce: Closed Won 2026-04-30 | MRR: $555/mo\nIndustry: UCaaS / VoIP | 5 employees | Altoona, IA\nWebsite: sparrowtec.com\n\n⚠️ No Fireflies transcripts found — no prior sales call data available.\nFull billing config, accounting software, RMM tool, and complete user list with emails to be collected at kickoff.\nBoth contacts share the same email address (service@sparrowtec.com) — confirm individual emails.";
+  // _SA_NOTES intentionally omitted from client-facing HTML — stored in Notion Pre-fill Data only
 
   function _applyStaticPrefill() {
     prefillFromSalesBrief(_STATIC_PREFILL);
-    // Also pre-fill SA notes field if present
-    if (_SA_NOTES) {
-      var notesEl = document.getElementById('sa-notes');
-      if (notesEl && !notesEl.value) notesEl.value = _SA_NOTES;
-    }
     // Banner suppressed — pre-fill is silent
   }
 
@@ -2341,7 +2336,8 @@ renderUserTable();
       arrears: state.arrears, gracePeriod: state.gracePeriod, graceDays: state.graceDays,
       lateFees: state.lateFees, lateFeeType: state.lateFeeType, lateFeeAmount: state.lateFeeAmount,
       multiProfile: state.multiProfile, inventory: state.inventory,
-      users: state.users, saNotes: state.saNotes,
+      users: state.users,
+      clientNotes: state.saNotes,
       company:  (document.getElementById('sf-company')  || {}).value || '',
       contact:  (document.getElementById('sf-contact')  || {}).value || '',
       email:    (document.getElementById('sf-email')    || {}).value || '',
