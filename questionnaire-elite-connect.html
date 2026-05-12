@@ -1522,8 +1522,8 @@
 
       <!-- SA Notes -->
       <div class="form-group" style="margin-top:28px;">
-        <div class="form-label">Notes for SA <span style="color:var(--text-mute);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>
-        <textarea class="form-input" id="saNotes" placeholder="Add any notes, flags, or questions for the Solutions Architect reviewing this configuration…" rows="3"></textarea>
+        <div class="form-label">Notes or Questions <span style="color:var(--text-mute);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>
+        <textarea class="form-input" id="saNotes" placeholder="Anything you’d like your Solutions Architect to know before your kickoff call…" rows="3"></textarea>
       </div>
 
       <!-- Action Buttons -->
@@ -2312,15 +2312,10 @@ renderUserTable();
 };
   var _NOTION_PAGE_ID = '35ea59b7-e7b2-813a-b64b-f6073214f360';
   var _NOTION_TOKEN   = 'ntn_44454897586bmbiekJ' + 'JkGrbl7m2iQfSu8zZ8OsF5FE77wc';
-  var _SA_NOTES       = "Salesforce: Closed Won 2026-05-05 | MRR: $575/mo\nIndustry: Security Integrator | Virginia\nWebsite: eliteconnectva.com\n\n⚠️ Third attempt — two prior Closed Lost opps (Dec 2025, Feb 2026) before this win. Handle with care.\n⚠️ No Fireflies transcripts found — no prior sales call data available.\nFull user list, billing config, accounting software, RMM tool to be collected at kickoff.";
+  // _SA_NOTES intentionally omitted from client-facing HTML — stored in Notion Pre-fill Data only
 
   function _applyStaticPrefill() {
     prefillFromSalesBrief(_STATIC_PREFILL);
-    // Also pre-fill SA notes field if present
-    if (_SA_NOTES) {
-      var notesEl = document.getElementById('sa-notes');
-      if (notesEl && !notesEl.value) notesEl.value = _SA_NOTES;
-    }
     // Banner suppressed — pre-fill is silent
   }
 
@@ -2334,7 +2329,8 @@ renderUserTable();
       arrears: state.arrears, gracePeriod: state.gracePeriod, graceDays: state.graceDays,
       lateFees: state.lateFees, lateFeeType: state.lateFeeType, lateFeeAmount: state.lateFeeAmount,
       multiProfile: state.multiProfile, inventory: state.inventory,
-      users: state.users, saNotes: state.saNotes,
+      users: state.users,
+      clientNotes: state.saNotes,
       company:  (document.getElementById('sf-company')  || {}).value || '',
       contact:  (document.getElementById('sf-contact')  || {}).value || '',
       email:    (document.getElementById('sf-email')    || {}).value || '',
