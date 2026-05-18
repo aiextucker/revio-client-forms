@@ -1,0 +1,97 @@
+name: Questionnaire Submit
+
+on:
+  repository_dispatch:
+    types: [questionnaire-submitted]
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write questionnaire submission to Notion
+        uses: actions/github-script@v7
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_QUESTIONNAIRE_TOKEN }}
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            const payload = event.client_payload || {};
+            const notionToken = process.env.NOTION_TOKEN;
+            const notionVersion = '2022-06-28';
+
+            if (!notionToken) throw new Error('Missing NOTION_QUESTIONNAIRE_TOKEN secret');
+            if (!payload.notionPageId) throw new Error('Missing notionPageId');
+            if (!payload.submittedData || typeof payload.submittedData !== 'object') throw new Error('Missing submittedData');
+
+            const submitted = payload.submittedData;
+            submitted.submittedAt = submitted.submittedAt || new Date().toISOString();
+
+            function chunkRichText(str) {
+              const chunks = [];
+              for (let i = 0; i < str.length; i += 2000) chunks.push({ text: { content: str.slice(i, i + 2000) } });
+              return chunks.length ? chunks.slice(0, 100) : [{ text: { content: '' } }];
+            }
+            function txt(s) { return [{ type: 'text', text: { content: String(s || '—') } }]; }
+            function row(label, val) {
+              return { object: 'block', type: 'paragraph', paragraph: { rich_text: [
+                { type: 'text', text: { content: `${label}: ` }, annotations: { bold: true } },
+                { type: 'text', text: { content: String(val || '—') } },
+              ] } };
+            }
+            function h2(s) { return { object: 'block', type: 'heading_2', heading_2: { rich_text: txt(s) } }; }
+            function divider() { return { object: 'block', type: 'divider', divider: {} }; }
+            function bullet(s) { return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: txt(s) } }; }
+            function buildBlocks(p) {
+              const cycle = p.billingCycle || '—';
+              const dates = (p.cycleDates || []).join(', ') || '—';
+              const grace = p.gracePeriod === 'yes' ? `Yes — ${p.graceDays || '?'} days` : (p.gracePeriod === 'no' ? 'No' : '—');
+              const fees = p.lateFees === 'yes'
+                ? `Yes — ${p.lateFeeType === 'flat' ? '$' + p.lateFeeAmount : (p.lateFeeAmount || '?') + '%'}`
+                : (p.lateFees === 'no' ? 'No' : '—');
+              const blocks = [
+                h2('🏢 Company Info'),
+                row('Company', p.company), row('Contact', p.contact), row('Email', p.email), row('Phone', p.phone), row('Address', p.address),
+                divider(),
+                h2('💳 Billing Configuration'),
+                row('Cycle type', cycle), row('Billing dates', dates), row('Bill in arrears', p.arrears), row('Multiple profiles', p.multiProfile), row('Grace period', grace), row('Late fees', fees),
+                divider(),
+                h2(`👥 Users (${(p.users || []).length})`),
+              ];
+              for (const u of (p.users || [])) blocks.push(bullet(`${u.name || '?'} <${u.email || '?'}> — ${u.role || '?'}${u.title ? ' (' + u.title + ')' : ''}`));
+              if (!(p.users || []).length) blocks.push(bullet('No users provided'));
+              blocks.push(divider(), h2('📦 Inventory'), row('Inventory tracking', p.inventory));
+              if (p.clientNotes) blocks.push(divider(), h2('💬 Client Notes'), { object: 'block', type: 'paragraph', paragraph: { rich_text: txt(p.clientNotes) } });
+              blocks.push(divider(), { object: 'block', type: 'paragraph', paragraph: { rich_text: [
+                { type: 'text', text: { content: `Submitted: ${p.submittedAt}` }, annotations: { italic: true, color: 'gray' } },
+              ] } });
+              return blocks;
+            }
+            async function notion(method, endpoint, body) {
+              const res = await fetch(`https://api.notion.com/v1${endpoint}`, {
+                method,
+                headers: {
+                  Authorization: `Bearer ${notionToken}`,
+                  'Notion-Version': notionVersion,
+                  'Content-Type': 'application/json',
+                },
+                body: body ? JSON.stringify(body) : undefined,
+              });
+              const text = await res.text();
+              if (!res.ok) throw new Error(`Notion ${method} ${endpoint} failed: HTTP ${res.status} ${text}`);
+              return text ? JSON.parse(text) : null;
+            }
+
+            await notion('PATCH', `/pages/${payload.notionPageId}`, {
+              properties: {
+                Status: { select: { name: 'Submitted' } },
+                'Submitted At': { date: { start: submitted.submittedAt } },
+                'Submitted Data': { rich_text: chunkRichText(JSON.stringify(submitted)) },
+                'SA Notified': { checkbox: false },
+              },
+            });
+            await notion('PATCH', `/blocks/${payload.notionPageId}/children`, { children: buildBlocks(submitted) });
+            core.info(`Saved questionnaire submission for ${submitted.company || payload.clientSlug || payload.notionPageId}`);
